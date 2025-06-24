@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Man Linear Regression Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow-x: auto;
+        }
+        
+        .game-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #ffeb3b;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+        }
+        
+        .score-board {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        
+        .score-item {
+            color: #ffeb3b;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        canvas {
+            border: 3px solid #ffeb3b;
+            border-radius: 10px;
+            background: #000;
+            display: block;
+            margin: 20px auto;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            color: #ccc;
+        }
+        
+        .question-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .question-content {
+            background: linear-gradient(135deg, #2196F3, #21CBF3);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .question-title {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .question-text {
+            color: #fff;
+            font-size: 18px;
+            line-height: 1.4;
+            margin-bottom: 20px;
+        }
+        
+        .answer-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .answer-btn:hover {
+            background: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .correct {
+            background: #4CAF50 !important;
+            color: white !important;
+        }
+        
+        .incorrect {
+            background: #f44336 !important;
+            color: white !important;
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .game-over-content {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .restart-btn {
+            padding: 12px 24px;
+            background: #fff;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .restart-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎯 Pac-Man Linear Regression Adventure</h1>
+        
+        <div class="score-board">
+            <div class="score-item">Score: <span id="score">0</span></div>
+            <div class="score-item">Lives: <span id="lives">3</span></div>
+            <div class="score-item">Questions: <span id="questions-answered">0</span>/10</div>
+        </div>
+        
+        <canvas id="gameCanvas" width="760" height="560"></canvas>
+        
+        <div class="controls">
+            <p>🎮 Use WASD or Arrow Keys to move | 🔵 Collect dots | 📊 Answer regression questions for bonus points!</p>
+        </div>
+    </div>
+    
+    <div class="question-modal" id="questionModal">
+        <div class="question-content">
+            <div class="question-title">📊 Linear Regression Challenge!</div>
+            <div class="question-text" id="questionText"></div>
+            <button class="answer-btn" id="answerA"></button>
+            <button class="answer-btn" id="answerB"></button>
+            <button class="answer-btn" id="answerC"></button>
+        </div>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+        <div class="game-over-content">
+            <h2>🎊 Game Complete!</h2>
+            <p id="finalScore"></p>
+            <button class="restart-btn" onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let gameState = {
+            score: 0,
+            lives: 3,
+            questionsAnswered: 0,
+            currentQuestionIndex: 0,
+            gameRunning: true,
+            questionActive: false,
+            isWinner: false
+        };
+        
+        // Questions data with randomized correct answers
+        const questions = [
+            {
+                question: "What does the coefficient of determination (R²) represent in a linear regression model?",
+                answers: [
+                    "The slope of the regression line",
+                    "The proportion of variance in the dependent variable explained by the model",
+                    "The correlation between independent variables"
+                ],
+                correct: 1
+            },
+            {
+                question: "Which assumption is not required for linear regression?",
+                answers: [
+                    "Homoscedasticity",
+                    "Multicollinearity",
+                    "Linearity"
+                ],
+                correct: 1
+            },
+            {
+                question: "What does multicollinearity affect in a regression model?",
+                answers: [
+                    "The number of predictors",
+                    "The value of R²",
+                    "The interpretation of coefficients"
+                ],
+                correct: 2
+            },
+            {
+                question: "Which of the following indicates a violation of the linearity assumption?",
+                answers: [
+                    "A curved pattern in the residual plot",
+                    "Residuals with constant variance",
+                    "Normally distributed residuals"
+                ],
+                correct: 0
+            },
+            {
+                question: "What happens when an important predictor is omitted from a linear regression model?",
+                answers: [
+                    "R² always increases",
+                    "Model suffers from omitted variable bias",
+                    "Multicollinearity is resolved"
+                ],
+                correct: 1
+            },
+            {
+                question: "In linear regression, what does a statistically significant p-value (< 0.05) for a coefficient imply?",
+                answers: [
+                    "The residuals are normally distributed",
+                    "The intercept must be zero",
+                    "The predictor is likely associated with the outcome"
+                ],
+                correct: 2
+            },
+            {
+                question: "What type of variable is appropriate as a dependent variable in linear regression?",
+                answers: [
+                    "Continuous",
+                    "Categorical with more than two levels",
+                    "Ordinal"
+                ],
+                correct: 0
+            },
+            {
+                question: "What is the main purpose of using standardized coefficients (beta coefficients)?",
+                answers: [
+                    "To ensure residuals are normal",
+                    "To compare the relative influence of predictors",
+                    "To increase model accuracy"
+                ],
+                correct: 1
+            },
+            {
+                question: "Which diagnostic plot helps detect non-constant variance of residuals (heteroscedasticity)?",
+                answers: [
+                    "Histogram of predictors",
+                    "QQ plot of independent variables",
+                    "Residuals vs. Fitted plot"
+                ],
+                correct: 2
+            },
+            {
+                question: "What is the role of the intercept in a linear regression equation?",
+                answers: [
+                    "It represents the expected value of the response when all predictors are zero",
+                    "It measures the slope of the regression line",
+                    "It adjusts the variance in residuals"
+                ],
+                correct: 0
+            }
+        ];
+        
+        // Player object
+        const player = {
+            x: 60,
+            y: 60,
+            size: 12,
+            speed: 2,
+            direction: 0, // 0: right, 1: down, 2: left, 3: up
+            mouthOpen: true,
+            animationFrame: 0
+        };
+        
+        // Walls array - Replaced thick center box with a thinner one
+        const walls = [
+            // Outer walls
+            {x: 0, y: 0, width: canvas.width, height: 20},
+            {x: 0, y: canvas.height - 20, width: canvas.width, height: 20},
+            {x: 0, y: 0, width: 20, height: canvas.height},
+            {x: canvas.width - 20, y: 0, width: 20, height: canvas.height},
+            
+            // A few scattered blocks to make it interesting but open
+            {x: 100, y: 100, width: 120, height: 20},
+            {x: canvas.width - 220, y: 100, width: 120, height: 20},
+            
+            {x: 100, y: canvas.height - 120, width: 120, height: 20},
+            {x: canvas.width - 220, y: canvas.height - 120, width: 120, height: 20},
+            
+            // Center ghost house (thinner barrier with top opening)
+            {x: 320, y: 240, width: 20, height: 80},  // Left wall
+            {x: 420, y: 240, width: 20, height: 80},  // Right wall
+            {x: 320, y: 320, width: 120, height: 20}  // Bottom wall
+        ];
+        
+        // Dots array
+        let dots = [];
+        let questionDots = [];
+        
+        // Ghost object - starts outside the box
+        const ghost = {
+            x: 370,
+            y: 280,
+            size: 12,
+            speed: 1,
+            color: '#ff4444'
+        };
+        
+        // Initialize dots
+        function initializeDots() {
+            dots = [];
+            questionDots = [];
+            
+            // Generate dots in corridors (avoiding walls)
+            for (let x = 30; x < canvas.width - 30; x += 30) {
+                for (let y = 30; y < canvas.height - 30; y += 30) {
+                    // Check if position is not inside a wall
+                    if (!isPositionInWall(x, y, 5) && 
+                        (Math.abs(x - player.x) > 40 || Math.abs(y - player.y) > 40)) {
+                        dots.push({ x, y, size: 3 });
+                    }
+                }
+            }
+            
+            // Question dots in strategic corridor positions
+            const questionPositions = [
+                {x: 120, y: 120}, {x: 620, y: 120}, {x: 120, y: 380},
+                {x: 620, y: 380}, {x: 300, y: 160}, {x: 500, y: 160},
+                {x: 160, y: 240}, {x: 580, y: 240}, {x: 240, y: 420},
+                {x: 520, y: 420}
+            ];
+            
+            questionPositions.forEach((pos, index) => {
+                if (!isPositionInWall(pos.x, pos.y, 15)) {
+                    questionDots.push({
+                        x: pos.x,
+                        y: pos.y,
+                        size: 8,
+                        questionIndex: index,
+                        collected: false
+                    });
+                }
+            });
+        }
+        
+        // Check if position collides with walls
+        function isPositionInWall(x, y, size) {
+            for (let wall of walls) {
+                if (x - size < wall.x + wall.width &&
+                    x + size > wall.x &&
+                    y - size < wall.y + wall.height &&
+                    y + size > wall.y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Check if movement path is clear
+        function canMoveTo(fromX, fromY, toX, toY, size) {
+            // Check several points along the path
+            const steps = 5;
+            for (let i = 0; i <= steps; i++) {
+                const x = fromX + (toX - fromX) * (i / steps);
+                const y = fromY + (toY - fromY) * (i / steps);
+                if (isPositionInWall(x, y, size)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        // Input handling
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            keys[e.code] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            keys[e.code] = false;
+        });
+        
+        // Update player movement
+        function updatePlayer() {
+            if (gameState.questionActive) return;
+            
+            let requestedDirection = player.direction;
+            
+            // Get input for new direction
+            if (keys['w'] || keys['ArrowUp']) requestedDirection = 3;
+            if (keys['s'] || keys['ArrowDown']) requestedDirection = 1;
+            if (keys['a'] || keys['ArrowLeft']) requestedDirection = 2;
+            if (keys['d'] || keys['ArrowRight']) requestedDirection = 0;
+            
+            // Calculate new position for requested direction
+            let newX = player.x;
+            let newY = player.y;
+            
+            switch (requestedDirection) {
+                case 0: newX += player.speed; break; // right
+                case 1: newY += player.speed; break; // down
+                case 2: newX -= player.speed; break; // left
+                case 3: newY -= player.speed; break; // up
+            }
+            
+            // Try to move in requested direction
+            if (canMoveTo(player.x, player.y, newX, newY, player.size)) {
+                player.direction = requestedDirection;
+                player.x = newX;
+                player.y = newY;
+            } else {
+                // If can't go in requested direction, try current direction
+                newX = player.x;
+                newY = player.y;
+                
+                switch (player.direction) {
+                    case 0: newX += player.speed; break;
+                    case 1: newY += player.speed; break;
+                    case 2: newX -= player.speed; break;
+                    case 3: newY -= player.speed; break;
+                }
+                
+                if (canMoveTo(player.x, player.y, newX, newY, player.size)) {
+                    player.x = newX;
+                    player.y = newY;
+                }
+            }
+            
+            // Horizontal tunnel effect
+            if (player.x < 20) player.x = canvas.width - 20;
+            if (player.x > canvas.width - 20) player.x = 20;
+            
+            // Animation
+            player.animationFrame++;
+            if (player.animationFrame % 10 === 0) {
+                player.mouthOpen = !player.mouthOpen;
+            }
+        }
+        
+        // Update ghost AI with better pathfinding
+        function updateGhost() {
+            if (gameState.questionActive) return;
+            
+            const dx = player.x - ghost.x;
+            const dy = player.y - ghost.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 0) {
+                // Try direct movement first
+                const moveX = (dx / distance) * ghost.speed;
+                const moveY = (dy / distance) * ghost.speed;
+                
+                let newX = ghost.x + moveX;
+                let newY = ghost.y + moveY;
+                
+                if (canMoveTo(ghost.x, ghost.y, newX, newY, ghost.size)) {
+                    ghost.x = newX;
+                    ghost.y = newY;
+                } else {
+                    // Try horizontal movement only
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        newX = ghost.x + (dx > 0 ? ghost.speed : -ghost.speed);
+                        if (canMoveTo(ghost.x, ghost.y, newX, ghost.y, ghost.size)) {
+                            ghost.x = newX;
+                        } else {
+                            // Try vertical movement
+                            newY = ghost.y + (dy > 0 ? ghost.speed : -ghost.speed);
+                            if (canMoveTo(ghost.x, ghost.y, ghost.x, newY, ghost.size)) {
+                                ghost.y = newY;
+                            }
+                        }
+                    } else {
+                        // Try vertical movement first
+                        newY = ghost.y + (dy > 0 ? ghost.speed : -ghost.speed);
+                        if (canMoveTo(ghost.x, ghost.y, ghost.x, newY, ghost.size)) {
+                            ghost.y = newY;
+                        } else {
+                            // Try horizontal movement
+                            newX = ghost.x + (dx > 0 ? ghost.speed : -ghost.speed);
+                            if (canMoveTo(ghost.x, ghost.y, newX, ghost.y, ghost.size)) {
+                                ghost.x = newX;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Check collisions
+        function checkCollisions() {
+            // Check dot collection
+            dots = dots.filter(dot => {
+                const dx = player.x - dot.x;
+                const dy = player.y - dot.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < player.size + dot.size) {
+                    gameState.score += 10;
+                    return false;
+                }
+                return true;
+            });
+
+            // WIN CONDITION: Check if all normal dots are collected.
+            if (dots.length === 0) {
+                gameState.isWinner = true;
+                endGame();
+                return; // Stop processing further collisions since the game is won.
+            }
+            
+            // Check question dot collection
+            questionDots.forEach(qDot => {
+                if (!qDot.collected) {
+                    const dx = player.x - qDot.x;
+                    const dy = player.y - qDot.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < player.size + qDot.size) {
+                        qDot.collected = true;
+                        showQuestion(qDot.questionIndex);
+                    }
+                }
+            });
+            
+            // Check ghost collision
+            const ghostDx = player.x - ghost.x;
+            const ghostDy = player.y - ghost.y;
+            const ghostDistance = Math.sqrt(ghostDx * ghostDx + ghostDy * ghostDy);
+            
+            if (ghostDistance < player.size + ghost.size) {
+                gameState.lives--;
+                if (gameState.lives <= 0) {
+                    gameState.isWinner = false; // Ensure isWinner is false on loss
+                    endGame();
+                } else {
+                    // Reset positions to a safe starting point
+                    player.x = 60;
+                    player.y = 60;
+                    ghost.x = 370; // Reset ghost to inside its house
+                    ghost.y = 280;
+                }
+            }
+        }
+        
+        // Draw Pac-Man
+        function drawPlayer() {
+            ctx.fillStyle = '#ffeb3b';
+            ctx.beginPath();
+            
+            if (player.mouthOpen) {
+                // Calculate mouth angle based on direction
+                let startAngle, endAngle;
+                const mouthSize = Math.PI / 3;
+                
+                switch (player.direction) {
+                    case 0: // right
+                        startAngle = mouthSize / 2;
+                        endAngle = 2 * Math.PI - mouthSize / 2;
+                        break;
+                    case 1: // down
+                        startAngle = Math.PI / 2 + mouthSize / 2;
+                        endAngle = Math.PI / 2 - mouthSize / 2;
+                        break;
+                    case 2: // left
+                        startAngle = Math.PI + mouthSize / 2;
+                        endAngle = Math.PI - mouthSize / 2;
+                        break;
+                    case 3: // up
+                        startAngle = 3 * Math.PI / 2 + mouthSize / 2;
+                        endAngle = 3 * Math.PI / 2 - mouthSize / 2;
+                        break;
+                }
+                
+                ctx.arc(player.x, player.y, player.size, startAngle, endAngle);
+                ctx.lineTo(player.x, player.y);
+                ctx.fill();
+            } else {
+                // Closed mouth - full circle
+                ctx.arc(player.x, player.y, player.size, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+        
+        // Draw ghost
+        function drawGhost() {
+            ctx.fillStyle = ghost.color;
+            ctx.beginPath();
+            ctx.arc(ghost.x, ghost.y - 5, ghost.size, Math.PI, 0);
+            ctx.rect(ghost.x - ghost.size, ghost.y - 5, ghost.size * 2, ghost.size);
+            ctx.fill();
+            
+            // Ghost bottom wavy part
+            ctx.beginPath();
+            ctx.moveTo(ghost.x - ghost.size, ghost.y + ghost.size - 5);
+            for (let i = 0; i < 4; i++) {
+                ctx.lineTo(ghost.x - ghost.size + (i * ghost.size / 2), ghost.y + ghost.size - 5 + (i % 2 === 0 ? 0 : -8));
+            }
+            ctx.lineTo(ghost.x + ghost.size, ghost.y + ghost.size - 5);
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(ghost.x - 6, ghost.y - 8, 4, 0, Math.PI * 2);
+            ctx.arc(ghost.x + 6, ghost.y - 8, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(ghost.x - 4, ghost.y - 8, 2, 0, Math.PI * 2);
+            ctx.arc(ghost.x + 8, ghost.y - 8, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Draw walls
+        function drawWalls() {
+            ctx.fillStyle = '#0066cc';
+            walls.forEach(wall => {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            });
+        }
+        // Draw dots
+        function drawDots() {
+            ctx.fillStyle = '#ffeb3b';
+            dots.forEach(dot => {
+                ctx.beginPath();
+                ctx.arc(dot.x, dot.y, dot.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Question dots
+            questionDots.forEach(qDot => {
+                if (!qDot.collected) {
+                    ctx.fillStyle = '#2196F3';
+                    ctx.beginPath();
+                    ctx.arc(qDot.x, qDot.y, qDot.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Add pulsing effect
+                    ctx.strokeStyle = '#21CBF3';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(qDot.x, qDot.y, qDot.size + Math.sin(Date.now() / 200) * 3, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        // Show question modal
+        function showQuestion(questionIndex) {
+            if (questionIndex >= questions.length) return;
+            
+            gameState.questionActive = true;
+            const question = questions[questionIndex];
+            
+            document.getElementById('questionText').textContent = question.question;
+            document.getElementById('answerA').textContent = 'A) ' + question.answers[0];
+            document.getElementById('answerB').textContent = 'B) ' + question.answers[1];
+            document.getElementById('answerC').textContent = 'C) ' + question.answers[2];
+            
+            const buttons = [
+                document.getElementById('answerA'),
+                document.getElementById('answerB'),
+                document.getElementById('answerC')
+            ];
+            
+            buttons.forEach((btn, index) => {
+                btn.className = 'answer-btn';
+                btn.onclick = () => answerQuestion(index, question.correct, buttons);
+            });
+            
+            document.getElementById('questionModal').style.display = 'flex';
+        }
+        
+        // Handle question answer
+        function answerQuestion(selectedIndex, correctIndex, buttons) {
+            buttons.forEach((btn, index) => {
+                if (index === correctIndex) {
+                    btn.classList.add('correct');
+                } else if (index === selectedIndex && index !== correctIndex) {
+                    btn.classList.add('incorrect');
+                }
+                btn.onclick = null;
+            });
+            
+            if (selectedIndex === correctIndex) {
+                gameState.score += 100; // Bonus points for correct answer
+            }
+            
+            gameState.questionsAnswered++;
+            
+            setTimeout(() => {
+                document.getElementById('questionModal').style.display = 'none';
+                gameState.questionActive = false;
+            }, 2000);
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('lives').textContent = gameState.lives;
+            document.getElementById('questions-answered').textContent = gameState.questionsAnswered;
+        }
+        
+        // End game
+        function endGame() {
+            gameState.gameRunning = false;
+            let message = '';
+            
+            if (gameState.isWinner) {
+                message = `🏆 CONGRATULATIONS! 🏆<br>You collected all the pellets!<br>Final Score: ${gameState.score}`;
+            } else if (gameState.lives <= 0) {
+                message = `👻 Game Over! 👻<br>The ghost caught you!<br>Final Score: ${gameState.score}<br>Questions Answered: ${gameState.questionsAnswered}/10`;
+            }
+            
+            document.getElementById('finalScore').innerHTML = message;
+            document.getElementById('gameOver').style.display = 'flex';
+        }
+        
+        // Restart game
+        function restartGame() {
+            gameState = {
+                score: 0,
+                lives: 3,
+                questionsAnswered: 0,
+                currentQuestionIndex: 0,
+                gameRunning: true,
+                questionActive: false,
+                isWinner: false
+            };
+            
+            player.x = 60;
+            player.y = 60;
+            ghost.x = 370;
+            ghost.y = 280;
+            
+            initializeDots();
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('questionModal').style.display = 'none';
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!gameState.gameRunning) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+            
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update game objects
+            if (!gameState.questionActive) {
+                updatePlayer();
+                updateGhost();
+            }
+            checkCollisions();
+            
+            // Draw everything
+            drawWalls();
+            drawDots();
+            drawPlayer();
+            drawGhost();
+            
+            // Update UI
+            updateUI();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initialize and start game
+        initializeDots();
+        gameLoop();
+    </script>
+</body>
+</html>
